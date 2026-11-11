@@ -43,4 +43,4 @@ prisma/migrations/
 
 # Misc
 *.tsbuildinfo
-.eslintcache
+.eslintcache.worktrees/

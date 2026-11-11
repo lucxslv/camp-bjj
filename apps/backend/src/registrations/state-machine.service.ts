@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Registration, RegistrationStatus, Role } from '@prisma/client';
+import { Registration, RegistrationStatus, Role, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { CategoryAlgorithmService } from '../competitions/category-algorithm.service';
 
@@ -146,10 +146,12 @@ export class StateMachineService {
   async transition(
     registrationId: string,
     targetStatus: RegistrationStatus,
-    context: TransitionContext
+    context: TransitionContext,
+    tx?: Prisma.TransactionClient
   ): Promise<Registration> {
     // Get current registration with version for optimistic locking
-    const registration = await this.prisma.registration.findUnique({
+    const client = tx || this.prisma;
+    const registration = await client.registration.findUnique({
       where: { id: registrationId },
       include: {
         competition: true,
@@ -190,52 +192,48 @@ export class StateMachineService {
       pendingReason = 'WEIGHT_OUT_OF_CATEGORY';
     }
 
-    // Execute transition in transaction
-    const result = await this.prisma.$transaction(async (tx) => {
-      // Optimistic lock: update only if version matches
-      const updated = await tx.registration.update({
-        where: {
-          id: registrationId,
-          version: currentVersion, // Optimistic lock
-        },
-        data: {
-          status: targetStatus,
-          version: { increment: 1 },
-          ...(pendingCategoryId && { pendingCategoryId }),
-          ...(pendingReason && { pendingReason }),
-        },
-      });
-
-      if (!updated) {
-        throw new BadRequestException({
-          statusCode: 409,
-          code: 'STATE_CONFLICT',
-          message: 'Registration was modified by another operation. Please retry.',
-        });
-      }
-
-      // Create audit event
-      await this.auditService.log({
-        registrationId,
-        fromStatus: currentStatus,
-        toStatus: targetStatus,
-        eventType: this.getEventType(currentStatus, targetStatus),
-        reason: context.reason,
-        actorId: context.actorId,
-        actorRole: context.actorRole,
-        competitionId: context.competitionId,
-        previousCategoryId: context.previousCategoryId,
-        newCategoryId: context.newCategoryId,
-        weighInId: context.weighInId,
-        isException: context.isException || false,
-        exceptionScope: context.exceptionScope,
-        correlationId: context.correlationId,
-      }, tx);
-
-      return updated;
+    // Execute transition (caller manages transaction)
+    // Optimistic lock: update only if version matches
+    const updated = await client.registration.update({
+      where: {
+        id: registrationId,
+        version: currentVersion, // Optimistic lock
+      },
+      data: {
+        status: targetStatus,
+        version: { increment: 1 },
+        ...(pendingCategoryId && { pendingCategoryId }),
+        ...(pendingReason && { pendingReason }),
+      },
     });
 
-    return result;
+    if (!updated) {
+      throw new BadRequestException({
+        statusCode: 409,
+        code: 'STATE_CONFLICT',
+        message: 'Registration was modified by another operation. Please retry.',
+      });
+    }
+
+    // Create audit event
+    await this.auditService.log({
+      registrationId,
+      fromStatus: currentStatus,
+      toStatus: targetStatus,
+      eventType: this.getEventType(currentStatus, targetStatus),
+      reason: context.reason,
+      actorId: context.actorId,
+      actorRole: context.actorRole,
+      competitionId: context.competitionId,
+      previousCategoryId: context.previousCategoryId,
+      newCategoryId: context.newCategoryId,
+      weighInId: context.weighInId,
+      isException: context.isException || false,
+      exceptionScope: context.exceptionScope,
+      correlationId: context.correlationId,
+    }, tx);
+
+    return updated;
   }
 
   private async validateConfirmation(registration: Registration & { athlete: any; competition: any; category: any }): Promise<void> {

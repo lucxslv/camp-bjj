@@ -43,4 +43,13 @@ prisma/migrations/
 
 # Misc
 *.tsbuildinfo
-.eslintcache.worktrees/
+.eslintcache
+
+# Superpowers
+.superpowers/
+
+# Documentation (generated)
+docs/superpowers/
+
+# Worktrees
+.worktrees/

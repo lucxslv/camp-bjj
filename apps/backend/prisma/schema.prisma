@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core identity (linked to Supabase auth.users via auth_user_id)
+model User {
+  id                    String   @id @default(cuid())
+  authUserId            String   @unique @map("auth_user_id")
+  email                 String   @unique
+  fullName              String   @map("full_name")
+  role                  Role     @default(ATHLETE)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  athleteProfile        AthleteProfile?
+  professorAssignments  ProfessorAssignment[]
+  registrations         Registration[]         @relation("AthleteRegistrations")
+  weighIns              WeighIn[]              @relation("MeasuredByUser")
+  registrationEvents    RegistrationEvent[]    @relation("ActorEvents")
+  guardianConsents      GuardianConsent[]
+  uploadedFiles         StoredFile[]           @relation("UploadedByUser")
+
+  @@index([authUserId])
+  @@index([email])
+  @@map("users")
+}
+
+enum Role {
+  ATHLETE
+  PROFESSOR
+  ORGANIZER
+  ADMIN
+}
+
+model AthleteProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  birthDate       DateTime @map("birth_date")
+  beltRank        BeltRank @map("belt_rank")
+  weightKg        Decimal? @db.Decimal(5, 2) @map("weight_kg")
+  heightCm        Int?     @map("height_cm")
+  academy         String?
+  federationId    String?  @map("federation_id")
+  medicalCertUrl  String?  @map("medical_cert_url")
+  medicalCertExpiry DateTime? @map("medical_cert_expiry")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("athlete_profiles")
+}
+
+model ProfessorAssignment {
+  id             String   @id @default(cuid())
+  professorId    String   @map("professor_id")
+  professor      User     @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  competitionId  String   @map("competition_id")
+  competition    Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  assignedAt     DateTime @default(now()) @map("assigned_at")
+  isActive       Boolean  @default(true) @map("is_active")
+
+  @@unique([professorId, competitionId])
+  @@index([competitionId])
+  @@index([professorId])
+  @@map("professor_assignments")
+}
+
+model Competition {
+  id                     String             @id @default(cuid())
+  name                   String
+  slug                   String             @unique
+  description            String?
+  regulation             String?            // snapshot JSON or text
+  startsAt               DateTime           @map("starts_at")
+  endsAt                 DateTime           @map("ends_at")
+  registrationOpensAt    DateTime           @map("registration_opens_at")
+  registrationClosesAt   DateTime           @map("registration_closes_at")
+  cancellationDeadline   DateTime?          @map("cancellation_deadline")
+  timezone               String             @default("America/Sao_Paulo")
+  status                 CompetitionStatus  @default(DRAFT)
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  eventDivisions         EventDivision[]
+  categories             Category[]
+  professorAssignments   ProfessorAssignment[]
+  registrations          Registration[]
+  guardianConsents       GuardianConsent[]
+  storedFiles            StoredFile[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([startsAt])
+  @@map("competitions")
+}
+
+enum CompetitionStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  FINISHED
+  CANCELLED
+}
+
+model DivisionType {
+  id          String   @id @default(cuid())
+  code        String   @unique // GI, NO_GI, ABSOLUTO
+  name        String
+  description String?
+  isStandard  Boolean  @default(true) @map("is_standard")
+
+  eventDivisions EventDivision[]
+
+  @@map("division_types")
+}
+
+model EventDivision {
+  id               String      @id @default(cuid())
+  competitionId    String      @map("competition_id")
+  competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  divisionTypeId   String      @map("division_type_id")
+  divisionType     DivisionType @relation(fields: [divisionTypeId], references: [id])
+  config           Json?       // Absoluto rules, weight limits, etc.
+  isActive         Boolean     @default(true) @map("is_active")
+
+  categories       Category[]
+  registrations    Registration[]
+
+  @@unique([competitionId, divisionTypeId])
+  @@index([competitionId])
+  @@index([divisionTypeId])
+  @@map("event_divisions")
+}
+
+model Category {
+  id                  String     @id @default(cuid())
+  competitionId       String     @map("competition_id")
+  competition         Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  eventDivisionId     String     @map("event_division_id")
+  eventDivision       EventDivision @relation(fields: [eventDivisionId], references: [id], onDelete: Cascade)
+  name                String
+  minAge              Int?       @map("min_age")
+  maxAge              Int?       @map("max_age")
+  minWeightKg         Decimal?   @db.Decimal(5, 2) @map("min_weight_kg")
+  maxWeightKg         Decimal?   @db.Decimal(5, 2) @map("max_weight_kg")
+  beltRanks           BeltRank[] @map("belt_ranks")
+  gender              Gender?    // M, F, MIXED
+  snapshotVersion     Int        @default(1) @map("snapshot_version")
+  isActive            Boolean    @default(true) @map("is_active")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  registrations       Registration[]         @relation("CategoryRegistrations")
+  pendingRegistrations Registration[]       @relation("PendingCategoryRegistrations")
+
+  @@index([competitionId])
+  @@index([eventDivisionId])
+  @@map("categories")
+}
+
+enum BeltRank {
+  WHITE
+  BLUE
+  PURPLE
+  BROWN
+  BLACK
+}
+
+enum Gender {
+  M
+  F
+  MIXED
+}
+
+model Registration {
+  id                    String              @id @default(cuid())
+  athleteId             String              @map("athlete_id")
+  athlete               User                @relation("AthleteRegistrations", fields: [athleteId], references: [id], onDelete: Cascade)
+  competitionId         String              @map("competition_id")
+  competition           Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  eventDivisionId       String              @map("event_division_id")
+  eventDivision         EventDivision       @relation(fields: [eventDivisionId], references: [id], onDelete: Cascade)
+  categoryId            String?             @map("category_id")
+  category              Category?           @relation("CategoryRegistrations", fields: [categoryId], references: [id], onDelete: SetNull)
+  // Pending category after invalid weigh-in
+  pendingCategoryId     String?             @map("pending_category_id")
+  pendingCategory       Category?           @relation("PendingCategoryRegistrations", fields: [pendingCategoryId], references: [id], onDelete: SetNull)
+  pendingReason         String?             @map("pending_reason")
+  status                RegistrationStatus  @default(NEEDS_REVIEW)
+  declaredWeightKg      Decimal?            @db.Decimal(5, 2) @map("declared_weight_kg")
+  registrationSnapshot  Json?               @map("registration_snapshot") // versioned rules at registration time
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  version               Int                 @default(1) // optimistic locking
+
+  weighIns              WeighIn[]
+  registrationEvents    RegistrationEvent[]
+  guardianConsents      GuardianConsent[]
+  storedFiles           StoredFile[]
+
+  @@unique([athleteId, eventDivisionId])
+  @@index([competitionId])
+  @@index([eventDivisionId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([athleteId, status])
+  @@map("registrations")
+}
+
+enum RegistrationStatus {
+  NEEDS_REVIEW
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+model WeighIn {
+  id               String         @id @default(cuid())
+  registrationId   String         @map("registration_id")
+  registration     Registration   @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  weightKg         Decimal        @db.Decimal(5, 2) @map("weight_kg")
+  unit             String         @default("kg")
+  measuredAt       DateTime       @default(now()) @map("measured_at")
+  measuredBy       String         @map("measured_by") // user id
+  measuredByUser   User           @relation("MeasuredByUser", fields: [measuredBy], references: [id])
+  result           WeighInResult  @map("weigh_in_result")
+  notes            String?
+  idempotencyKey   String?        @unique @map("idempotency_key")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([measuredBy])
+  @@map("weigh_ins")
+}
+
+enum WeighInResult {
+  VALID
+  INVALID_CATEGORY
+  PENDING_REVIEW
+}
+
+model RegistrationEvent {
+  id                   String              @id @default(cuid())
+  registrationId       String              @map("registration_id")
+  registration         Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  fromStatus           RegistrationStatus? @map("from_status")
+  toStatus             RegistrationStatus  @map("to_status")
+  eventType            String              @map("event_type") // APPROVE, REJECT, REOPEN, WEIGH_IN, CANCEL, EXCEPTION
+  reason               String?
+  actorId              String              @map("actor_id")
+  actor                User                @relation("ActorEvents", fields: [actorId], references: [id])
+  actorRole            Role                @map("actor_role")
+  competitionId        String              @map("competition_id")
+  previousCategoryId   String?             @map("previous_category_id")
+  newCategoryId        String?             @map("new_category_id")
+  weighInId            String?             @map("weigh_in_id")
+  isException          Boolean             @default(false) @map("is_exception")
+  exceptionScope       String?             @map("exception_scope")
+  correlationId        String?             @map("correlation_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([competitionId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("registration_events")
+}
+
+model GuardianConsent {
+  id               String        @id @default(cuid())
+  athleteId        String        @map("athlete_id")
+  athlete          User          @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  competitionId    String        @map("competition_id")
+  competition      Competition   @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  registrationId   String?       @map("registration_id")
+  registration     Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  guardianName     String        @map("guardian_name")
+  guardianDocument String        @map("guardian_document")
+  documentUrl      String        @map("document_url") // signed URL reference
+  expiresAt        DateTime      @map("expires_at")
+  status           ConsentStatus @default(PENDING)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@unique([athleteId, competitionId])
+  @@index([competitionId])
+  @@index([registrationId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("guardian_consents")
+}
+
+enum ConsentStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  REJECTED
+}
+
+model StoredFile {
+  id            String       @id @default(cuid())
+  registrationId String?     @map("registration_id")
+  registration  Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  competitionId String?     @map("competition_id")
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  uploadedBy    String       @map("uploaded_by")
+  uploadedByUser User        @relation("UploadedByUser", fields: [uploadedBy], references: [id])
+  path          String       // Storage object path
+  mimeType      String       @map("mime_type")
+  sizeBytes     Int          @map("size_bytes")
+  purpose       FilePurpose
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([registrationId])
+  @@index([competitionId])
+  @@index([uploadedBy])
+  @@index([purpose])
+  @@map("stored_files")
+}
+
+enum FilePurpose {
+  CONSENT_DOCUMENT
+  MEDICAL_CERTIFICATE
+  ID_DOCUMENT
+  OTHER
+}

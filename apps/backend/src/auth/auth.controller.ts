@@ -1,17 +1,25 @@
 import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody, ApiPropertyOptional } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SupabaseJwtGuard } from '../common/guards/supabase-jwt.guard';
 import { CurrentUser, CurrentUser as CurrentUserDecorator } from '../common/decorators/current-user.decorator';
 
 class CompleteProfileDto {
+  @ApiPropertyOptional({ description: 'Full name', example: 'João Silva' })
   fullName?: string;
+
+  @ApiPropertyOptional({ description: 'Birth date (ISO)', example: '2000-01-15' })
   birthDate?: Date;
+
+  @ApiPropertyOptional({ description: 'Belt rank', example: 'BLUE', enum: ['WHITE', 'BLUE', 'PURPLE', 'BROWN', 'BLACK'] })
   beltRank?: string;
+
+  @ApiPropertyOptional({ description: 'Weight in kg', example: 75.5 })
   weightKg?: number;
 }
 
 class UpdateProfileDto {
+  @ApiPropertyOptional({ description: 'Full name', example: 'João Silva Santos' })
   fullName?: string;
 }
 
@@ -58,6 +66,7 @@ export class AuthController {
   @Patch('me/profile')
   @UseGuards(SupabaseJwtGuard)
   @ApiOperation({ summary: 'Update editable profile fields' })
+  @ApiBody({ type: UpdateProfileDto })
   @ApiResponse({ status: 200, description: 'Profile updated' })
   @ApiResponse({ status: 401, description: 'Unauthenticated' })
   async updateProfile(@CurrentUserDecorator('userId') userId: string, @Body() data: UpdateProfileDto) {
@@ -68,6 +77,7 @@ export class AuthController {
   @Post('me/complete-profile')
   @UseGuards(SupabaseJwtGuard)
   @ApiOperation({ summary: 'Complete profile with athlete data' })
+  @ApiBody({ type: CompleteProfileDto })
   @ApiResponse({ status: 200, description: 'Profile completed' })
   @ApiResponse({ status: 401, description: 'Unauthenticated' })
   async completeProfile(@CurrentUser() user: any, @Body() data: CompleteProfileDto) {

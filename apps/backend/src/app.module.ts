@@ -5,6 +5,8 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompetitionsModule } from './competitions/competitions.module';
+import { RegistrationsModule } from './registrations/registrations.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { CompetitionsModule } from './competitions/competitions.module';
     AuthModule,
     UsersModule,
     CompetitionsModule,
+    RegistrationsModule,
+    AuditModule,
   ],
 })
 export class AppModule {}

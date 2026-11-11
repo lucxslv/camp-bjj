@@ -156,12 +156,14 @@ model Category {
   updatedAt           DateTime   @updatedAt @map("updated_at")
 
   registrations       Registration[]         @relation("CategoryRegistrations")
-  pendingRegistrations Registration[]       @relation("PendingCategoryRegistrations")
+    pendingRegistrations Registration[]       @relation("PendingCategoryRegistrations")
+    previousCategoryEvents RegistrationEvent[]  @relation("PreviousCategoryEvents")
+    newCategoryEvents    RegistrationEvent[]  @relation("NewCategoryEvents")
 
-  @@index([competitionId])
-  @@index([eventDivisionId])
-  @@map("categories")
-}
+    @@index([competitionId])
+    @@index([eventDivisionId])
+    @@map("categories")
+  }
 
 enum BeltRank {
   WHITE
@@ -232,6 +234,7 @@ model WeighIn {
   notes            String?
   idempotencyKey   String?        @unique @map("idempotency_key")
   createdAt        DateTime       @default(now()) @map("created_at")
+  registrationEvents RegistrationEvent[] @relation("WeighInEvents")
 
   @@index([registrationId])
   @@index([measuredBy])
@@ -257,8 +260,11 @@ model RegistrationEvent {
   actorRole            Role                @map("actor_role")
   competitionId        String              @map("competition_id")
   previousCategoryId   String?             @map("previous_category_id")
+  previousCategory     Category?           @relation("PreviousCategoryEvents", fields: [previousCategoryId], references: [id])
   newCategoryId        String?             @map("new_category_id")
+  newCategory          Category?           @relation("NewCategoryEvents", fields: [newCategoryId], references: [id])
   weighInId            String?             @map("weigh_in_id")
+  weighIn              WeighIn?            @relation("WeighInEvents", fields: [weighInId], references: [id])
   isException          Boolean             @default(false) @map("is_exception")
   exceptionScope       String?             @map("exception_scope")
   correlationId        String?             @map("correlation_id")

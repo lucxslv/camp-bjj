@@ -170,14 +170,14 @@ export class RegistrationsService {
         athlete: { select: { id: true, fullName: true, email: true, athleteProfile: true } },
         weighIns: { orderBy: { measuredAt: 'desc' } },
         registrationEvents: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            actor: { select: { id: true, fullName: true, role: true } },
-            previousCategory: { select: { name: true } },
-            newCategory: { select: { name: true } },
-            weighIn: { select: { weightKg: true, result: true, measuredAt: true } },
-          },
-        },
+                  orderBy: { createdAt: 'desc' },
+                  include: {
+                    actor: { select: { id: true, fullName: true, role: true } },
+                    previousCategory: { select: { name: true } },
+                    newCategory: { select: { name: true } },
+                    weighIn: { select: { weightKg: true, result: true, measuredAt: true } },
+                  },
+                },
         guardianConsents: true,
       },
     });

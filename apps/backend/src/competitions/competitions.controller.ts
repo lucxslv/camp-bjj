@@ -4,7 +4,7 @@ import { CompetitionsService } from './competitions.service';
 import { SupabaseJwtGuard } from '../common/guards/supabase-jwt.guard';
 import { OrganizerGuard } from '../common/guards/organizer.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CreateCompetitionDto, UpdateCompetitionDto, CreateEventDivisionDto, UpdateEventDivisionDto, CreateCategoryDto, UpdateCategoryDto } from './dto/competition.dto';
+import { CreateCompetitionDto, UpdateCompetitionDto, CreateEventDivisionDto, UpdateEventDivisionDto, CreateCategoryDto, UpdateCategoryDto } from '../common/dto/api.dto';
 
 @ApiTags('competitions')
 @ApiBearerAuth('access-token')

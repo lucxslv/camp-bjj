@@ -1,27 +1,9 @@
 import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SupabaseJwtGuard } from '../common/guards/supabase-jwt.guard';
-import { CurrentUser, CurrentUser as CurrentUserDecorator } from '../common/decorators/current-user.decorator';
-
-class CompleteProfileDto {
-  @ApiPropertyOptional({ description: 'Full name', example: 'João Silva' })
-  fullName?: string;
-
-  @ApiPropertyOptional({ description: 'Birth date (ISO)', example: '2000-01-15' })
-  birthDate?: Date;
-
-  @ApiPropertyOptional({ description: 'Belt rank', example: 'BLUE', enum: ['WHITE', 'BLUE', 'PURPLE', 'BROWN', 'BLACK'] })
-  beltRank?: string;
-
-  @ApiPropertyOptional({ description: 'Weight in kg', example: 75.5 })
-  weightKg?: number;
-}
-
-class UpdateProfileDto {
-  @ApiPropertyOptional({ description: 'Full name', example: 'João Silva Santos' })
-  fullName?: string;
-}
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CompleteProfileDto, UpdateProfileDto } from '../common/dto/api.dto';
 
 @ApiTags('auth')
 @ApiBearerAuth('access-token')
@@ -69,7 +51,7 @@ export class AuthController {
   @ApiBody({ type: UpdateProfileDto })
   @ApiResponse({ status: 200, description: 'Profile updated' })
   @ApiResponse({ status: 401, description: 'Unauthenticated' })
-  async updateProfile(@CurrentUserDecorator('userId') userId: string, @Body() data: UpdateProfileDto) {
+  async updateProfile(@CurrentUser('userId') userId: string, @Body() data: UpdateProfileDto) {
     const user = await this.authService.updateProfile(userId, data);
     return { user };
   }

@@ -73,7 +73,7 @@ export class AuthService {
     });
   }
 
-  async completeProfile(authUserId: string, data: { fullName?: string; birthDate?: Date; beltRank?: string; weightKg?: number }): Promise<User> {
+  async completeProfile(authUserId: string, data: { fullName?: string; birthDate?: string | Date; beltRank?: string; weightKg?: number }): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { authUserId } });
     if (!user) {
       throw new UnauthorizedException({
@@ -96,13 +96,13 @@ export class AuthService {
       await this.prisma.athleteProfile.upsert({
         where: { userId: user.id },
         update: {
-          birthDate: data.birthDate,
+          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
           beltRank: data.beltRank as any,
           weightKg: data.weightKg,
         },
         create: {
           userId: user.id,
-          birthDate: data.birthDate || new Date(),
+          birthDate: data.birthDate ? new Date(data.birthDate) : new Date(),
           beltRank: (data.beltRank as any) || 'WHITE',
           weightKg: data.weightKg,
         },
